@@ -17,7 +17,7 @@ export async function connectToMongoDB() {
     console.log("You successfully connected to MongoDB!");
 
     db = client.db("EasyRentDB");
-    usersCollection = db.collection("users");
+    usersCollection = db.collection("user");
     equipmentsCollection = db.collection("equipments");
     bookingsCollection = db.collection("bookings");
     favouritesCollection = db.collection("favourites");
