@@ -7,7 +7,7 @@ import { connectToMongoDB } from "./config/db.js";
 import userRoutes from "./routes/user/index.js";
 import equipmentRoutes from "./routes/equipment/index.js";
 import bookingRoutes from "./routes/booking/index.js";
-import favoriteRoutes from "./routes/favorite/index.js";
+import favouriteRoutes from "./routes/favorite/index.js";
 import paymentRoutes from "./routes/payment/index.js";
 import adminRoutes from "./routes/admin/index.js";
 
@@ -24,7 +24,7 @@ app.get("/", (req, res) => {
 app.use("/users", userRoutes);
 app.use("/equipments", equipmentRoutes);
 app.use("/bookings", bookingRoutes);
-app.use("/favorites", favoriteRoutes);
+app.use("/favourites", favouriteRoutes);
 app.use("/payments", paymentRoutes);
 app.use("/admin", adminRoutes);
 

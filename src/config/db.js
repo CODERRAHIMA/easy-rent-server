@@ -23,6 +23,11 @@ export async function connectToMongoDB() {
     favouritesCollection = db.collection("favourites");
     paymentsCollection = db.collection("payments");
 
+    await favouritesCollection.createIndex(
+      { email: 1, equipmentId: 1 },
+      { unique: true },
+    );
+
     return client;
   } catch (err) {
     console.dir(err);
