@@ -1,7 +1,24 @@
 import express from "express";
-import { userProfilesCollection } from "../../config/db.js";
+import {
+  usersCollection,
+  userProfilesCollection,
+  db,
+} from "../../config/db.js";
+import { ObjectId } from "mongodb";
 
 const userRoutes = express.Router();
+
+const allowedRoles = ["customer", "owner", "admin"];
+
+// Temporary admin check for development only.
+const verifyAdmin = async (email) => {
+  if (!email) return null;
+
+  return usersCollection.findOne(
+    { email, role: "admin" },
+    { projection: { _id: 1, email: 1, role: 1 } },
+  );
+};
 
 // GET: Fetch profile information
 userRoutes.get("/profile", async (req, res) => {
@@ -78,6 +95,189 @@ userRoutes.patch("/profile", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to update profile",
+    });
+  }
+});
+
+
+// get all registered users (Admin)
+userRoutes.get("/", async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    const admin = await verifyAdmin(email);
+
+    if (!admin) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can view all users",
+      });
+    }
+
+    const users = await usersCollection
+      .find({})
+      .project({
+        name: 1,
+        email: 1,
+        role: 1,
+        createdAt: 1,
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return res.status(200).json({
+      success: true,
+      data: users,
+      message: "Users fetched successfully",
+    });
+  } catch (error) {
+    console.error("Fetch users error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch users",
+    });
+  }
+});
+
+
+// Change user role (Admin)
+userRoutes.patch("/:id/role", async (req, res) => {
+  try {
+    const { email } = req.query;
+    const { role } = req.body;
+    const { id } = req.params;
+
+    const admin = await verifyAdmin(email);
+
+    if (!admin) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can change user roles",
+      });
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID",
+      });
+    }
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role",
+      });
+    }
+
+    const targetUser = await usersCollection.findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (targetUser.email === admin.email) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot change your own role",
+      });
+    }
+
+    await usersCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { role } },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "User role updated successfully",
+    });
+  } catch (error) {
+    console.error("Change role error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to change user role",
+    });
+  }
+});
+
+
+// Delete user (Admin)
+userRoutes.delete("/:id", async (req, res) => {
+  try {
+    const { email } = req.query;
+    const { id } = req.params;
+
+    const admin = await verifyAdmin(email);
+
+    if (!admin) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can delete users",
+      });
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID",
+      });
+    }
+
+    const targetUser = await usersCollection.findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (targetUser.email === admin.email) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot delete your own account",
+      });
+    }
+
+    // Delete the Better Auth user document
+    await usersCollection.deleteOne({
+      _id: new ObjectId(id),
+    });
+
+    // Delete additional profile information
+    await userProfilesCollection.deleteOne({
+      email: targetUser.email,
+    });
+
+    // Clean up Better Auth sessions and linked accounts
+    await db.collection("session").deleteMany({
+      userId: id,
+    });
+
+    await db.collection("account").deleteMany({
+      userId: id,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete user error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete user",
     });
   }
 });
