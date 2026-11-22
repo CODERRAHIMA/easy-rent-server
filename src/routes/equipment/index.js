@@ -1,9 +1,24 @@
 import express from "express";
-import { equipmentsCollection } from "../../config/db.js";
+import {
+  equipmentsCollection,
+  usersCollection,
+} from "../../config/db.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
 import { ObjectId } from "mongodb";
 
 const equipmentRoutes = express.Router();
+
+// Check admin role temporarily
+const isAdmin = async (email) => {
+  if (!email) return false;
+
+  const user = await usersCollection.findOne(
+    { email },
+    { projection: { role: 1 } }
+  );
+
+  return user?.role === "admin";
+};
 
 // all equipments with server-side search, filtering and sorting
 equipmentRoutes.get("/", async (req, res) => {
@@ -126,6 +141,38 @@ equipmentRoutes.get("/my-equipment", async (req, res) => {
   }
 });
 
+// get all equipments (admin dashboard)
+equipmentRoutes.get("/admin/all", async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!(await isAdmin(email))) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin only.",
+      });
+    }
+
+    const equipments = await equipmentsCollection
+      .find({})
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    sendSuccess(
+      res,
+      equipments,
+      "All equipments fetched successfully"
+    );
+  } catch (error) {
+    console.error("Get all equipments error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch all equipments",
+    });
+  }
+});
+
 // add equipment
 equipmentRoutes.post("/", async (req, res) => {
   const data = req.body;
@@ -137,6 +184,64 @@ equipmentRoutes.post("/", async (req, res) => {
   });
 
   sendSuccess(res, result, "Equipment added successfully");
+});
+
+// Admin: approve or reject equipment
+equipmentRoutes.patch("/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email } = req.query;
+    const { status } = req.body;
+
+    if (!(await isAdmin(email))) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin only.",
+      });
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid equipment ID",
+      });
+    }
+
+    const allowedStatuses = ["pending", "approved", "rejected"];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid equipment status",
+      });
+    }
+
+    const result = await equipmentsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          status,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Equipment not found",
+      });
+    }
+
+    sendSuccess(res, result, "Equipment status updated successfully");
+  } catch (error) {
+    console.error("Update equipment status error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to update equipment status",
+    });
+  }
 });
 
 // update equipment
@@ -172,7 +277,6 @@ equipmentRoutes.patch("/:id", async (req, res) => {
     ];
 
     const updateFields = {};
-
     allowedFields.forEach((field) => {
       if (updatedData[field] !== undefined) {
         updateFields[field] = updatedData[field];
@@ -186,11 +290,19 @@ equipmentRoutes.patch("/:id", async (req, res) => {
       });
     }
 
+    const admin = await isAdmin(email);
+
+    const filter = {
+      _id: new ObjectId(id),
+    };
+
+    // Only non-admin users must own the equipment
+    if (!admin) {
+      filter["owner.email"] = email;
+    }
+
     const result = await equipmentsCollection.updateOne(
-      {
-        _id: new ObjectId(id),
-        "owner.email": email,
-      },
+      filter,
       {
         $set: updateFields,
       }
@@ -199,11 +311,12 @@ equipmentRoutes.patch("/:id", async (req, res) => {
     if (result.matchedCount === 0) {
       return res.status(404).json({
         success: false,
-        message: "Equipment not found or you are not the owner",
+        message: "Equipment not found or you are not authorized",
       });
     }
 
     sendSuccess(res, result, "Equipment updated successfully");
+
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -232,22 +345,29 @@ equipmentRoutes.delete("/:id", async (req, res) => {
       });
     }
 
-    const result = await equipmentsCollection.deleteOne({
+    const admin = await isAdmin(email);
+
+    const filter = {
       _id: new ObjectId(id),
-      "owner.email": email,
-    });
+    };
+
+    if (!admin) {
+      filter["owner.email"] = email;
+    }
+
+    const result = await equipmentsCollection.deleteOne(filter);
 
     if (result.deletedCount === 0) {
       return res.status(404).json({
         success: false,
-        message: "Equipment not found",
+        message: "Equipment not found or you are not authorized",
       });
     }
 
     sendSuccess(res, result, "Equipment deleted successfully");
+
   } catch (error) {
     console.error("Delete equipment error:", error);
-
     res.status(500).json({
       success: false,
       message: "Failed to delete equipment",
