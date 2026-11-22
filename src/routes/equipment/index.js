@@ -114,6 +114,26 @@ equipmentRoutes.get("/", async (req, res) => {
   }
 });
 
+// newest 6 equipments for features section
+equipmentRoutes.get("/featured", async (req, res) => {
+  try {
+    const items = await equipmentsCollection
+      .find({ status: "approved" })
+      .sort({ createdAt: -1 })
+      .limit(6)
+      .toArray();
+
+    sendSuccess(res, items, "Featured equipments fetched successfully");
+  } catch (error) {
+    console.error("Get featured equipments error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch featured equipments",
+    });
+  }
+});
+
 // my equipments (owner dashboard)
 equipmentRoutes.get("/my-equipment", async (req, res) => {
   try {
