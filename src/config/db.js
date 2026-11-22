@@ -10,6 +10,7 @@ let equipmentsCollection;
 let bookingsCollection;
 let favouritesCollection;
 let paymentsCollection;
+let userProfilesCollection;
 
 export async function connectToMongoDB() {
   try {
@@ -22,6 +23,7 @@ export async function connectToMongoDB() {
     bookingsCollection = db.collection("bookings");
     favouritesCollection = db.collection("favourites");
     paymentsCollection = db.collection("payments");
+    userProfilesCollection = db.collection("userProfiles");
 
     await favouritesCollection.createIndex(
       { email: 1, equipmentId: 1 },
@@ -41,4 +43,5 @@ export {
   bookingsCollection,
   favouritesCollection,
   paymentsCollection,
+  userProfilesCollection,
 };

@@ -4,7 +4,7 @@ import "dotenv/config";
 
 import { connectToMongoDB } from "./config/db.js";
 
-import userRoutes from "./routes/user/index.js";
+import userRoutes from "./routes/users/index.js";
 import equipmentRoutes from "./routes/equipment/index.js";
 import bookingRoutes from "./routes/booking/index.js";
 import favouriteRoutes from "./routes/favorite/index.js";
