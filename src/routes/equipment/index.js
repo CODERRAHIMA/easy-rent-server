@@ -5,6 +5,8 @@ import {
 } from "../../config/db.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
 import { ObjectId } from "mongodb";
+import { verifyToken } from "../../middleware/verifyToken.js";
+import verifyRole from "../../middleware/verifyRole.js";
 
 const equipmentRoutes = express.Router();
 
@@ -135,7 +137,7 @@ equipmentRoutes.get("/featured", async (req, res) => {
 });
 
 // my equipments (owner dashboard)
-equipmentRoutes.get("/my-equipment", async (req, res) => {
+equipmentRoutes.get("/my-equipment", verifyToken, verifyRole("owner"), async (req, res) => {
   try {
     const email = req.query.email;
 
@@ -162,7 +164,7 @@ equipmentRoutes.get("/my-equipment", async (req, res) => {
 });
 
 // get all equipments (admin dashboard)
-equipmentRoutes.get("/admin/all", async (req, res) => {
+equipmentRoutes.get("/admin/all", verifyToken, verifyRole("admin"), async (req, res) => {
   try {
     const { email } = req.query;
 
@@ -194,7 +196,7 @@ equipmentRoutes.get("/admin/all", async (req, res) => {
 });
 
 // add equipment
-equipmentRoutes.post("/", async (req, res) => {
+equipmentRoutes.post("/", verifyToken, verifyRole("owner"), async (req, res) => {
   const data = req.body;
 
   const result = await equipmentsCollection.insertOne({
@@ -207,7 +209,7 @@ equipmentRoutes.post("/", async (req, res) => {
 });
 
 // Admin: approve or reject equipment
-equipmentRoutes.patch("/:id/status", async (req, res) => {
+equipmentRoutes.patch("/:id/status", verifyToken, verifyRole("admin"), async (req, res) => {
   try {
     const { id } = req.params;
     const { email } = req.query;
@@ -265,7 +267,7 @@ equipmentRoutes.patch("/:id/status", async (req, res) => {
 });
 
 // update equipment
-equipmentRoutes.patch("/:id", async (req, res) => {
+equipmentRoutes.patch("/:id", verifyToken, verifyRole("admin", "owner"), async (req, res) => {
   try {
     const { id } = req.params;
     const { email } = req.query;
@@ -346,7 +348,7 @@ equipmentRoutes.patch("/:id", async (req, res) => {
 });
 
 // delete equipment
-equipmentRoutes.delete("/:id", async (req, res) => {
+equipmentRoutes.delete("/:id", verifyToken, verifyRole("admin", "owner"), async (req, res) => {
   try {
     const { id } = req.params;
     const email = req.query.email;
@@ -396,7 +398,7 @@ equipmentRoutes.delete("/:id", async (req, res) => {
 });
 
 // get equipment details
-equipmentRoutes.get("/:id", async (req, res) => {
+equipmentRoutes.get("/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 

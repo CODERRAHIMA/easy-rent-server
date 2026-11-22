@@ -9,6 +9,8 @@ import {
 } from "../../config/db.js";
 
 import { stripe } from "../../config/stripe.js";
+import { verifyToken } from "../../middleware/verifyToken.js";
+import verifyRole from "../../middleware/verifyRole.js";
 
 const bookingRoutes = express.Router();
 
@@ -292,7 +294,7 @@ bookingRoutes.post("/create-check-session", async (req, res) => {
 });
 
 // Get all rentals of an owner
-bookingRoutes.get("/owner-rentals", async (req, res) => {
+bookingRoutes.get("/owner-rentals", verifyToken, verifyRole("owner"), async (req, res) => {
   try {
     const { email } = req.query;
 

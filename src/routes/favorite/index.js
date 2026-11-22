@@ -4,11 +4,13 @@ import {
   favouritesCollection,
   equipmentsCollection,
 } from "../../config/db.js";
+import { verifyToken } from "../../middleware/verifyToken.js";
+import verifyRole from "../../middleware/verifyRole.js";
 
 const favouriteRoutes = express.Router();
 
 // Add favourite
-favouriteRoutes.post("/", async (req, res) => {
+favouriteRoutes.post("/", verifyToken, verifyRole("customer"), async (req, res) => {
   try {
     const { email, equipmentId } = req.body;
 
@@ -69,7 +71,7 @@ favouriteRoutes.post("/", async (req, res) => {
 });
 
 // Check favourite status
-favouriteRoutes.get("/status/:equipmentId", async (req, res) => {
+favouriteRoutes.get("/status/:equipmentId", verifyToken, verifyRole("customer"), async (req, res) => {
   try {
     const { email } = req.query;
     const { equipmentId } = req.params;
@@ -101,7 +103,7 @@ favouriteRoutes.get("/status/:equipmentId", async (req, res) => {
 });
 
 // Get favourites
-favouriteRoutes.get("/", async (req, res) => {
+favouriteRoutes.get("/", verifyToken, verifyRole("customer"), async (req, res) => {
   try {
     const { email } = req.query;
 
@@ -143,7 +145,7 @@ favouriteRoutes.get("/", async (req, res) => {
 });
 
 // Remove favourite
-favouriteRoutes.delete("/:equipmentId", async (req, res) => {
+favouriteRoutes.delete("/:equipmentId", verifyToken, verifyRole("customer"), async (req, res) => {
   try {
     const { email } = req.query;
     const { equipmentId } = req.params;

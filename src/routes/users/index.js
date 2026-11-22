@@ -5,23 +5,16 @@ import {
   db,
 } from "../../config/db.js";
 import { ObjectId } from "mongodb";
+import { verifyToken } from "../../middleware/verifyToken.js";
+import verifyRole from "../../middleware/verifyRole.js";
 
 const userRoutes = express.Router();
 
 const allowedRoles = ["customer", "owner", "admin"];
 
-// Temporary admin check for development only.
-const verifyAdmin = async (email) => {
-  if (!email) return null;
-
-  return usersCollection.findOne(
-    { email, role: "admin" },
-    { projection: { _id: 1, email: 1, role: 1 } },
-  );
-};
 
 // GET: Fetch profile information
-userRoutes.get("/profile", async (req, res) => {
+userRoutes.get("/profile", verifyToken, async (req, res) => {
   try {
     const { email } = req.query;
 
@@ -53,7 +46,7 @@ userRoutes.get("/profile", async (req, res) => {
 });
 
 // PATCH: Update profile information
-userRoutes.patch("/profile", async (req, res) => {
+userRoutes.patch("/profile", verifyToken, async (req, res) => {
   try {
     const { email } = req.query;
     const { phone, address } = req.body;
@@ -101,19 +94,8 @@ userRoutes.patch("/profile", async (req, res) => {
 
 
 // get all registered users (Admin)
-userRoutes.get("/", async (req, res) => {
+userRoutes.get("/", verifyToken, verifyRole("admin"), async (req, res) => {
   try {
-    const { email } = req.query;
-
-    const admin = await verifyAdmin(email);
-
-    if (!admin) {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can view all users",
-      });
-    }
-
     const users = await usersCollection
       .find({})
       .project({
@@ -142,7 +124,7 @@ userRoutes.get("/", async (req, res) => {
 
 
 // Change user role (Admin)
-userRoutes.patch("/:id/role", async (req, res) => {
+userRoutes.patch("/:id/role", verifyToken, verifyRole("admin"), async (req, res) => {
   try {
     const { email } = req.query;
     const { role } = req.body;
@@ -210,7 +192,7 @@ userRoutes.patch("/:id/role", async (req, res) => {
 
 
 // Delete user (Admin)
-userRoutes.delete("/:id", async (req, res) => {
+userRoutes.delete("/:id", verifyToken, verifyRole("admin"), async (req, res) => {
   try {
     const { email } = req.query;
     const { id } = req.params;
