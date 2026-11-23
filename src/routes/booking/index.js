@@ -294,8 +294,7 @@ bookingRoutes.post("/create-check-session", async (req, res) => {
 });
 
 // Get all rentals (bookings) of a customer
-bookingRoutes.get(
-  "/my-rentals",
+bookingRoutes.get("/my-rentals",
   verifyToken,
   verifyRole("customer"),
   async (req, res) => {
@@ -331,142 +330,411 @@ bookingRoutes.get(
 );
 
 // Get all rentals of an owner
-// bookingRoutes.get("/owner-rentals", verifyToken, verifyRole("owner"), async (req, res) => {
-//   try {
-//     const { email } = req.query;
+bookingRoutes.get("/owner-rentals", verifyToken, verifyRole("owner"), async (req, res) => {
+  try {
+    const { email } = req.query;
 
-//     if (!email) {
-//       return fail(res, 400, "Owner email is required");
-//     }
+    if (!email) {
+      return fail(res, 400, "Owner email is required");
+    }
 
-//     // Find owner's equipment (only the fields we need)
-//     const ownerEquipments = await equipmentsCollection
-//       .find(
-//         { "owner.email": email },
-//         { projection: { name: 1, category: 1, image: 1 } },
-//       )
-//       .toArray();
+    // Find owner's equipment (only the fields we need)
+    const ownerEquipments = await equipmentsCollection
+      .find(
+        { "owner.email": email },
+        { projection: { name: 1, category: 1, image: 1 } },
+      )
+      .toArray();
 
-//     if (ownerEquipments.length === 0) {
-//       return res.send({
-//         success: true,
-//         message: "No rentals found",
-//         data: [],
-//       });
-//     }
+    if (ownerEquipments.length === 0) {
+      return res.send({
+        success: true,
+        message: "No rentals found",
+        data: [],
+      });
+    }
 
-//     // Look up equipment by id without searching the array for every booking
-//     const equipmentById = new Map(
-//       ownerEquipments.map((equipment) => [equipment._id.toString(), equipment]),
-//     );
+    // Look up equipment by id without searching the array for every booking
+    const equipmentById = new Map(
+      ownerEquipments.map((equipment) => [equipment._id.toString(), equipment]),
+    );
 
-//     // Find bookings for owner's equipment
-//     const bookings = await bookingsCollection
-//       .find({ equipmentId: { $in: [...equipmentById.keys()] } })
-//       .sort({ createdAt: -1 })
-//       .toArray();
+    // Find bookings for owner's equipment
+    const bookings = await bookingsCollection
+      .find({ equipmentId: { $in: [...equipmentById.keys()] } })
+      .sort({ createdAt: -1 })
+      .toArray();
 
-//     // Collect the customer ids and emails once, then fetch the customers and
-//     // profiles with 2 queries (instead of up to 3 queries for every booking)
-//     const customerIds = new Set();
-//     const customerEmails = new Set();
+    // Collect the customer ids and emails once, then fetch the customers and
+    // profiles with 2 queries (instead of up to 3 queries for every booking)
+    const customerIds = new Set();
+    const customerEmails = new Set();
 
-//     for (const booking of bookings) {
-//       const customerId = booking.customerId || booking.userId;
+    for (const booking of bookings) {
+      const customerId = booking.customerId || booking.userId;
 
-//       if (customerId && ObjectId.isValid(customerId)) {
-//         customerIds.add(String(customerId));
-//       }
-//       if (booking.userEmail) {
-//         customerEmails.add(booking.userEmail);
-//       }
-//     }
+      if (customerId && ObjectId.isValid(customerId)) {
+        customerIds.add(String(customerId));
+      }
+      if (booking.userEmail) {
+        customerEmails.add(booking.userEmail);
+      }
+    }
 
-//     const [users, profiles] = await Promise.all([
-//       usersCollection
-//         .find(
-//           {
-//             $or: [
-//               { _id: { $in: [...customerIds].map((id) => new ObjectId(id)) } },
-//               { email: { $in: [...customerEmails] } },
-//             ],
-//           },
-//           { projection: { name: 1, email: 1, phone: 1, image: 1, photo: 1 } },
-//         )
-//         .toArray(),
+    const [users, profiles] = await Promise.all([
+      usersCollection
+        .find(
+          {
+            $or: [
+              { _id: { $in: [...customerIds].map((id) => new ObjectId(id)) } },
+              { email: { $in: [...customerEmails] } },
+            ],
+          },
+          { projection: { name: 1, email: 1, phone: 1, image: 1, photo: 1 } },
+        )
+        .toArray(),
 
-//       userProfilesCollection
-//         .find(
-//           { email: { $in: [...customerEmails] } },
-//           { projection: { email: 1, phone: 1 } },
-//         )
-//         .toArray(),
-//     ]);
+      userProfilesCollection
+        .find(
+          { email: { $in: [...customerEmails] } },
+          { projection: { email: 1, phone: 1 } },
+        )
+        .toArray(),
+    ]);
 
-//     const usersById = new Map();
-//     const usersByEmail = new Map();
+    const usersById = new Map();
+    const usersByEmail = new Map();
 
-//     for (const user of users) {
-//       usersById.set(user._id.toString(), user);
-//       if (user.email && !usersByEmail.has(user.email)) {
-//         usersByEmail.set(user.email, user);
-//       }
-//     }
+    for (const user of users) {
+      usersById.set(user._id.toString(), user);
+      if (user.email && !usersByEmail.has(user.email)) {
+        usersByEmail.set(user.email, user);
+      }
+    }
 
-//     const profilesByEmail = new Map();
+    const profilesByEmail = new Map();
 
-//     for (const profile of profiles) {
-//       if (!profilesByEmail.has(profile.email)) {
-//         profilesByEmail.set(profile.email, profile);
-//       }
-//     }
+    for (const profile of profiles) {
+      if (!profilesByEmail.has(profile.email)) {
+        profilesByEmail.set(profile.email, profile);
+      }
+    }
 
-//     // Attach customer and equipment information
-//     const data = bookings.map((booking) => {
-//       const equipment = equipmentById.get(booking.equipmentId.toString());
+    // Attach customer and equipment information
+    const data = bookings.map((booking) => {
+      const equipment = equipmentById.get(booking.equipmentId.toString());
 
-//       // Find customer by id, or by email as a fallback
-//       const customerId = booking.customerId || booking.userId;
-//       const customer =
-//         (customerId && usersById.get(String(customerId))) ||
-//         (booking.userEmail && usersByEmail.get(booking.userEmail)) ||
-//         null;
+      // Find customer by id, or by email as a fallback
+      const customerId = booking.customerId || booking.userId;
+      const customer =
+        (customerId && usersById.get(String(customerId))) ||
+        (booking.userEmail && usersByEmail.get(booking.userEmail)) ||
+        null;
 
-//       // Additional customer profile information
-//       const customerProfile = booking.userEmail
-//         ? profilesByEmail.get(booking.userEmail)
-//         : null;
+      // Additional customer profile information
+      const customerProfile = booking.userEmail
+        ? profilesByEmail.get(booking.userEmail)
+        : null;
 
-//       return {
-//         ...booking,
+      return {
+        ...booking,
 
-//         requiredQuantity: booking.quantity || 1,
+        requiredQuantity: booking.quantity || 1,
 
-//         customer: {
-//           name: customer?.name || "Unknown customer",
-//           email: customer?.email || booking.userEmail || "",
-//           phone: customerProfile?.phone || customer?.phone || "",
-//           photo: customer?.image || customer?.photo || "",
-//         },
+        // Names that the owner page expects
+        totalAmount: booking.totalPrice,
+        bookingStatus: booking.status,
+        paymentStatus:
+          booking.paymentStatus === "unpaid" ? "pending" : booking.paymentStatus,
 
-//         equipment: {
-//           name: equipment?.name || booking.equipmentName || "Unknown equipment",
-//           category: equipment?.category || "",
-//           image: equipment?.image || "",
-//         },
-//       };
-//     });
+        customer: {
+          name: customer?.name || "Unknown customer",
+          email: customer?.email || booking.userEmail || "",
+          phone: customerProfile?.phone || customer?.phone || "",
+          photo: customer?.image || customer?.photo || "",
+        },
 
-//     return res.send({
-//       success: true,
-//       message: "Owner rentals fetched successfully",
-//       data,
-//     });
-//   } catch (error) {
-//     console.error("Fetch owner rentals error:", error);
+        equipment: {
+          name: equipment?.name || booking.equipmentName || "Unknown equipment",
+          category: equipment?.category || "",
+          image: equipment?.image || "",
+        },
+      };
+    });
 
-//     return fail(res, 500, "Failed to fetch owner rentals");
-//   }
-// });
+    return res.send({
+      success: true,
+      message: "Owner rentals fetched successfully",
+      data,
+    });
+  } catch (error) {
+    console.error("Fetch owner rentals error:", error);
+
+    return fail(res, 500, "Failed to fetch owner rentals");
+  }
+});
+
+// get all rentals (admin)
+bookingRoutes.get("/admin/all", verifyToken, verifyRole("admin"), async (req, res) => {
+    try {
+      const bookings = await bookingsCollection
+        .find({})
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      if (bookings.length === 0) {
+        return res.send({
+          success: true,
+          message: "No rentals found",
+          data: [],
+        });
+      }
+
+      const customerIds = new Set();
+      const customerEmails = new Set();
+      const equipmentIds = new Set();
+      const ownerEmails = new Set();
+
+      for (const booking of bookings) {
+        const customerId = booking.customerId || booking.userId;
+
+        if (customerId && ObjectId.isValid(customerId)) {
+          customerIds.add(String(customerId));
+        }
+
+        if (booking.userEmail) {
+          customerEmails.add(booking.userEmail);
+        }
+
+        if (
+          booking.equipmentId &&
+          ObjectId.isValid(booking.equipmentId)
+        ) {
+          equipmentIds.add(String(booking.equipmentId));
+        }
+
+        if (booking.ownerEmail) {
+          ownerEmails.add(booking.ownerEmail);
+        }
+      }
+
+      const equipments = await equipmentsCollection
+        .find({
+          _id: {
+            $in: [...equipmentIds].map(
+              (id) => new ObjectId(id)
+            ),
+          },
+        })
+        .toArray();
+
+      const equipmentById = new Map(
+        equipments.map((equipment) => [
+          equipment._id.toString(),
+          equipment,
+        ])
+      );
+
+      // Collect owner emails from equipment as fallback
+      for (const equipment of equipments) {
+        if (equipment.owner?.email) {
+          ownerEmails.add(equipment.owner.email);
+        }
+      }
+      const allEmails = new Set([
+        ...customerEmails,
+        ...ownerEmails,
+      ]);
+
+      const [users, profiles] = await Promise.all([
+        usersCollection
+          .find({
+            $or: [
+              {
+                _id: {
+                  $in: [...customerIds].map(
+                    (id) => new ObjectId(id)
+                  ),
+                },
+              },
+              {
+                email: { $in: [...allEmails] },
+              },
+            ],
+          })
+          .toArray(),
+
+        userProfilesCollection
+          .find({
+            email: { $in: [...allEmails] },
+          })
+          .toArray(),
+      ]);
+
+      const usersById = new Map();
+      const usersByEmail = new Map();
+      const profilesByEmail = new Map();
+
+      for (const user of users) {
+        usersById.set(user._id.toString(), user);
+
+        if (user.email) {
+          usersByEmail.set(user.email, user);
+        }
+      }
+
+      for (const profile of profiles) {
+        profilesByEmail.set(profile.email, profile);
+      }
+
+      const data = bookings.map((booking) => {
+        const customerId = booking.customerId || booking.userId;
+
+        const customer =
+          (customerId && usersById.get(String(customerId))) ||
+          usersByEmail.get(booking.userEmail) ||
+          {};
+
+        const customerProfile = profilesByEmail.get(
+          booking.userEmail
+        );
+
+        const equipment = equipmentById.get(
+          String(booking.equipmentId)
+        );
+
+        const ownerEmail =
+          booking.ownerEmail || equipment?.owner?.email || "";
+
+        const owner =
+          usersByEmail.get(ownerEmail) || {};
+
+        const ownerProfile = profilesByEmail.get(ownerEmail);
+
+        return {
+          ...booking,
+
+          _id: booking._id.toString(),
+          equipmentName:
+            equipment?.name || booking.equipmentName || "Unknown equipment",
+
+          requiredQuantity: booking.quantity || 1,
+          totalAmount: booking.totalPrice || 0,
+
+          bookingStatus: booking.status || "pending",
+
+          paymentStatus:
+            booking.paymentStatus === "unpaid"
+              ? "pending"
+              : booking.paymentStatus || "pending",
+
+          customer: {
+            name: customer.name || "Unknown customer",
+            email: customer.email || booking.userEmail || "",
+            phone:
+              customerProfile?.phone ||
+              customer.phone ||
+              "",
+            photo: customer.image || customer.photo || "",
+          },
+
+          owner: {
+            name:
+              equipment?.owner?.name ||
+              owner.name ||
+              "Unknown owner",
+            email: ownerEmail,
+            phone:
+              ownerProfile?.phone ||
+              owner.phone ||
+              "",
+          },
+        };
+      });
+
+      return res.send({
+        success: true,
+        message: "All rentals fetched successfully",
+        data,
+      });
+    } catch (error) {
+      console.error("Admin fetch all rentals error:", error);
+
+      return res.status(500).send({
+        success: false,
+        message: "Failed to fetch all rentals",
+      });
+    }
+  }
+);
+
+// update booking (admin)
+bookingRoutes.patch("/:id/status", verifyToken, verifyRole("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      // 1. Validate booking ID
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).send({
+          success: false,
+          message: "Invalid booking ID",
+        });
+      }
+
+      const allowedStatuses = [
+        "pending",
+        "confirmed",
+        "completed",
+        "cancelled",
+      ];
+
+      if (!allowedStatuses.includes(status)) {
+        return res.status(400).send({
+          success: false,
+          message: "Invalid booking status",
+        });
+      }
+
+      const booking = await bookingsCollection.findOne({
+        _id: new ObjectId(id),
+      });
+
+      if (!booking) {
+        return res.status(404).send({
+          success: false,
+          message: "Booking not found",
+        });
+      }
+
+      await bookingsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            status,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      return res.send({
+        success: true,
+        message: "Booking status updated successfully",
+        data: {
+          _id: id,
+          bookingStatus: status,
+        },
+      });
+    } catch (error) {
+      console.error("Admin update booking status error:", error);
+
+      return res.status(500).send({
+        success: false,
+        message: "Failed to update booking status",
+      });
+    }
+  }
+);
+
 
 export default bookingRoutes;
