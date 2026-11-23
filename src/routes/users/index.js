@@ -27,12 +27,12 @@ userRoutes.get("/profile", verifyToken, async (req, res) => {
 
     const profile = await userProfilesCollection.findOne(
       { email },
-      { projection: { _id: 0, phone: 1, address: 1 } },
+      { projection: { _id: 0, phone: 1, address: 1, image: 1 } },
     );
 
     return res.status(200).json({
       success: true,
-      data: profile || { phone: "", address: "" },
+      data: profile || { phone: "", address: "", image: "" },
       message: "Profile fetched successfully",
     });
   } catch (error) {
@@ -49,7 +49,7 @@ userRoutes.get("/profile", verifyToken, async (req, res) => {
 userRoutes.patch("/profile", verifyToken, async (req, res) => {
   try {
     const { email } = req.query;
-    const { phone, address } = req.body;
+    const { phone, address, image } = req.body;
 
     if (!email) {
       return res.status(400).json({
@@ -65,14 +65,29 @@ userRoutes.patch("/profile", verifyToken, async (req, res) => {
       });
     }
 
+    if (image !== undefined && typeof image !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Image must be a string",
+      });
+    }
+
+    const updateData = {
+      phone: phone.trim(),
+      address: address.trim(),
+      updatedAt: new Date(),
+    };
+
+    if (image !== undefined) {
+      updateData.image = image;
+    }
+
     await userProfilesCollection.updateOne(
       { email },
       {
         $set: {
           email,
-          phone: phone.trim(),
-          address: address.trim(),
-          updatedAt: new Date(),
+          ...updateData,
         },
       },
       { upsert: true },

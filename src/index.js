@@ -12,6 +12,7 @@ import userRoutes from "./routes/users/index.js";
 import equipmentRoutes from "./routes/equipment/index.js";
 import bookingRoutes from "./routes/booking/index.js";
 import favouriteRoutes from "./routes/favorite/index.js";
+import imageRoutes from "./routes/image/index.js";
 
 import { stripe } from "./config/stripe.js";
 
@@ -92,6 +93,7 @@ app.use("/users", userRoutes);
 app.use("/equipments", equipmentRoutes);
 app.use("/bookings", bookingRoutes);
 app.use("/favourites", favouriteRoutes);
+app.use("/images", imageRoutes);
 
 await connectToMongoDB();
 
