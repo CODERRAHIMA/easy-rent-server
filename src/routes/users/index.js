@@ -126,18 +126,8 @@ userRoutes.get("/", verifyToken, verifyRole("admin"), async (req, res) => {
 // Change user role (Admin)
 userRoutes.patch("/:id/role", verifyToken, verifyRole("admin"), async (req, res) => {
   try {
-    const { email } = req.query;
     const { role } = req.body;
     const { id } = req.params;
-
-    const admin = await verifyAdmin(email);
-
-    if (!admin) {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can change user roles",
-      });
-    }
 
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -164,13 +154,6 @@ userRoutes.patch("/:id/role", verifyToken, verifyRole("admin"), async (req, res)
       });
     }
 
-    if (targetUser.email === admin.email) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot change your own role",
-      });
-    }
-
     await usersCollection.updateOne(
       { _id: new ObjectId(id) },
       { $set: { role } },
@@ -194,17 +177,7 @@ userRoutes.patch("/:id/role", verifyToken, verifyRole("admin"), async (req, res)
 // Delete user (Admin)
 userRoutes.delete("/:id", verifyToken, verifyRole("admin"), async (req, res) => {
   try {
-    const { email } = req.query;
     const { id } = req.params;
-
-    const admin = await verifyAdmin(email);
-
-    if (!admin) {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can delete users",
-      });
-    }
 
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -221,13 +194,6 @@ userRoutes.delete("/:id", verifyToken, verifyRole("admin"), async (req, res) => 
       return res.status(404).json({
         success: false,
         message: "User not found",
-      });
-    }
-
-    if (targetUser.email === admin.email) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot delete your own account",
       });
     }
 

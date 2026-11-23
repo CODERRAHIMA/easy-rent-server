@@ -668,13 +668,12 @@ bookingRoutes.get("/admin/all", verifyToken, verifyRole("admin"), async (req, re
   }
 );
 
-// update booking (admin)
-bookingRoutes.patch("/:id/status", verifyToken, verifyRole("admin"), async (req, res) => {
+// update booking (admin - all, owner - their own)
+bookingRoutes.patch("/:id/status", verifyToken, verifyRole("admin", "owner"), async (req, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
 
-      // 1. Validate booking ID
       if (!ObjectId.isValid(id)) {
         return res.status(400).send({
           success: false,
@@ -704,6 +703,15 @@ bookingRoutes.patch("/:id/status", verifyToken, verifyRole("admin"), async (req,
         return res.status(404).send({
           success: false,
           message: "Booking not found",
+        });
+      }
+
+      const isAdmin = req.user?.role === "admin";
+
+      if (!isAdmin && booking.ownerEmail !== req.user?.email) {
+        return res.status(403).send({
+          success: false,
+          message: "Forbidden access",
         });
       }
 
